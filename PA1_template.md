@@ -1,31 +1,38 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-author: "Randy Sherwood"
-output: 
-  html_document:
-    keep_md: true
----
+# Reproducible Research: Peer Assessment 1
+Randy Sherwood  
 
 This code will analyze step data. Start by importing the data:
 
-```{r Import}
+
+```r
 data <- read.table(unz("C:/Users/Randy/Dropbox/Coursera/5 Reproducible Research/Assignment 1/RepData_PeerAssessment1/activity.zip",
                        "activity.csv"), sep=",", header=TRUE)
 ```
 
 The date field imported as a factor, so we must re-format it to be a date:
 
-```{r Format Date}
+
+```r
 data$date <- as.Date(as.character(data$date), "%Y-%m-%d")
 ```
 
 For part 1, we need daily totals of steps, so the data must be aggregated to a daily level:
 
-```{r Summarize and calculate daily}
+
+```r
 options(warn=-1)
 
 library(sqldf)
+```
 
+```
+## Loading required package: gsubfn
+## Loading required package: proto
+## Loading required package: RSQLite
+## Loading required package: DBI
+```
+
+```r
 DailySteps <- sqldf('select
                     date
                     ,sum(steps) as steps
@@ -35,21 +42,36 @@ DailySteps <- sqldf('select
                     date
                order by
                     date')
+```
 
+```
+## Loading required package: tcltk
+```
+
+```r
 library(ggplot2)
 
 qplot(steps, data=DailySteps)
+```
 
+```
+## stat_bin: binwidth defaulted to range/30. Use 'binwidth = x' to adjust this.
+```
+
+![](PA1_template_files/figure-html/Summarize and calculate daily-1.png) 
+
+```r
 mean.daily.steps <- format(mean(DailySteps$steps, na.rm=TRUE))
 
 median.daily.steps <- format(median(DailySteps$steps, na.rm=TRUE))
 ```
 
-The mean daily steps is **`r mean.daily.steps`**, and the median is **`r median.daily.steps`**.  
+The mean daily steps is **10766.19**, and the median is **10765**.  
 
 Next, we need averages for every five-minute interval to analyze behavior over the span of a day:
 
-```{r Summarize and calculate five-minute}
+
+```r
 #calculate means
 intervals <- as.data.frame(tapply(data$steps, data$interval, mean, na.rm=TRUE))
 #create column for intervals
@@ -58,16 +80,21 @@ intervals$interval <- as.numeric(rownames(intervals))
 colnames(intervals) <- c("steps","interval")
 
 qplot(interval, steps, data=intervals, geom="line", xlab="Interval", ylab="Average Steps")
+```
 
+![](PA1_template_files/figure-html/Summarize and calculate five-minute-1.png) 
+
+```r
 #find period with maximum average steps
 max <- intervals[intervals$steps==max(intervals$steps),2]
 ```
 
-The interval with the most steps, on average, is **`r max`**.  
+The interval with the most steps, on average, is **835**.  
 
 As the data contain many missing values, let's try estimating the actuals:
 
-```{r Handle Missings}
+
+```r
 #count missings
 nmiss <- nrow(data[is.na(data$steps),])
 
@@ -93,7 +120,15 @@ CleanedDailySteps <- sqldf('select
 
 
 qplot(steps, data=CleanedDailySteps)
+```
 
+```
+## stat_bin: binwidth defaulted to range/30. Use 'binwidth = x' to adjust this.
+```
+
+![](PA1_template_files/figure-html/Handle Missings-1.png) 
+
+```r
 #calculate new mean
 cleaned.mean <- format(mean(CleanedDailySteps$steps))
 
@@ -101,15 +136,16 @@ cleaned.mean <- format(mean(CleanedDailySteps$steps))
 cleaned.median <- format(median(CleanedDailySteps$steps))
 ```
 
-There are a total of **`r nmiss`** observations with missing step data.  
+There are a total of **2304** observations with missing step data.  
 
-Using the five-minute-interval averages to fill in missings, the mean remains unchanged, at **`r cleaned.mean`**.  
-However, the median gets pulled up to **`r cleaned.median`**, which is the same as the mean.  
+Using the five-minute-interval averages to fill in missings, the mean remains unchanged, at **10766.19**.  
+However, the median gets pulled up to **10766.19**, which is the same as the mean.  
 In general, this is the impact of imputation using a mean--it reduces variance within the dataset and leaves the mean unchanged.  
 
 Next, let's investigate differences between weekdays and weekends:
 
-```{r Weekday vs Weekend}
+
+```r
 #create new factor variable with weekday/weekend
 cleaned$day_type <- as.factor(ifelse(weekdays(cleaned$date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday"))
 
@@ -120,5 +156,7 @@ final <- ddply(cleaned, c("day_type","interval"), summarise, steps = mean(steps)
 
 qplot(interval, steps, geom="line", data=final, facets = day_type~.)
 ```
+
+![](PA1_template_files/figure-html/Weekday vs Weekend-1.png) 
 
 It appears that, on weekdays, there are short periods of more steps, but there is a lower baseline, as compared to weekends which seem to have activity spread out throughout the day.  The data for weekends also suggests that the person is active later in the day, compared to weekdays.  This suggests that perhaps the person this data tracks takes a walk in the morning, but works a fairly inactive job, and tends to move around more on weekends.
